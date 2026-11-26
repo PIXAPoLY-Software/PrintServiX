@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TSA 3D Print Service</title>
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='black'/><rect x='3' y='3' width='10' height='10' fill='%2322e56f'/></svg>">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<style>
+:root{
+  --bg:#000;--p1:#0a0a0a;--p2:#121212;--line:#222;--line2:#333;--tx:#ececec;--dim:#8d8d8d;
+  --g:#22e56f;--g2:#16a34a;--gd:rgba(34,229,111,.12);--bad:#ff5a5a;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;border-radius:0!important}
+html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 var(--sans);min-height:100vh;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+a{color:var(--g)}
+.wrap{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}
+.narrow{max-width:820px}
+.mono{font-family:var(--mono)}
+.dim{color:var(--dim)}
+
+/* header */
+.top{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(0,0,0,.94);backdrop-filter:blur(6px);z-index:30}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.brand{display:flex;align-items:center;gap:10px;font:700 14px var(--mono);letter-spacing:.12em}
+.mark{width:14px;height:14px;background:var(--g);display:inline-block}
+.brand .sl{color:var(--g)}
+.brand .sub{color:var(--dim);font-weight:400}
+#nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nbtn{background:none;border:1px solid transparent;padding:7px 12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--dim)}
+.nbtn:hover{color:var(--tx);border-color:var(--line2)}
+.nbtn.on{color:var(--g);border-color:var(--g2)}
+.chip{font:12px var(--mono);color:var(--dim);border:1px solid var(--line);padding:6px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.adm{color:#000;background:var(--g);border-color:var(--g);font-weight:700;letter-spacing:.1em}
+.badge{font:700 10px var(--mono);letter-spacing:.1em;color:#ffb74d;border:1px solid #6b4a14;padding:4px 7px;cursor:help}
+main{flex:1;padding:36px 0 70px}
+#app.busy{opacity:.55;pointer-events:none}
+footer{border-top:1px solid var(--line);color:var(--dim);font:12px var(--mono);padding:18px 0;letter-spacing:.06em}
+
+/* type */
+.eyebrow{font:700 12px var(--mono);letter-spacing:.14em;color:var(--g);margin:0 0 10px}
+h1{font-size:clamp(28px,5vw,48px);line-height:1.1;margin:0 0 18px;letter-spacing:-.02em}
+.h1s{font-size:clamp(24px,4vw,34px);margin:0 0 6px;line-height:1.15;letter-spacing:-.01em}
+h2,h3{margin:0}
+.hint{color:var(--dim);font-size:14px;margin:8px 0 0}
+
+/* buttons + inputs */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line2);background:var(--p2);color:var(--tx);padding:11px 18px;font:700 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;transition:background .12s,color .12s,border-color .12s}
+.btn:hover:not(:disabled){border-color:var(--g);color:var(--g)}
+.btn.primary{background:var(--g);border-color:var(--g);color:#000}
+.btn.primary:hover:not(:disabled){background:#fff;border-color:#fff;color:#000}
+.btn.ghost{background:transparent}
+.btn.on{border-color:var(--g);color:var(--g);background:var(--gd)}
+.btn.danger{color:var(--bad);border-color:#5a2222;background:transparent}
+.btn.danger:hover:not(:disabled){border-color:var(--bad);color:var(--bad);background:rgba(255,90,90,.08)}
+.btn.sm{padding:7px 11px;font-size:11px}
+.btn:disabled{opacity:.35}
+.link{background:none;border:0;color:var(--g);font:700 11px var(--mono);letter-spacing:.1em;text-decoration:underline;padding:4px}
+.lbl{display:block;font:700 11px var(--mono);letter-spacing:.12em;color:var(--dim);margin:16px 0 6px}
+.inp,select.inp,textarea.inp{width:100%;background:#000;border:1px solid var(--line2);color:var(--tx);padding:12px 14px;font:15px var(--sans)}
+.inp:focus{outline:none;border-color:var(--g)}
+textarea.inp{resize:vertical;min-height:84px}
+select.inp{font:13px var(--mono)}
+.ro{margin-top:14px;font:13px var(--mono);color:var(--tx)}
+.ro span{color:var(--dim);margin-right:10px;letter-spacing:.1em}
+.actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.empty{padding:30px;text-align:center;color:var(--dim);font:13px var(--mono);border:1px dashed var(--line2)}
+.rlist .empty{border:0}
+.err{color:var(--bad);min-height:22px;margin:10px 0 0;font-size:14px}
+
+/* login */
+.hero{padding-top:5vh}
+.hero h1{max-width:19ch}
+.loginbox{display:flex;max-width:580px;border:2px solid var(--g)}
+.loginbox input{flex:1;min-width:0;background:#000;border:0;color:var(--tx);padding:16px 18px;font:16px var(--mono)}
+.loginbox input:focus{outline:none;background:#04100a}
+.loginbox .btn{border:0;padding:0 24px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:48px 0 0;max-width:760px;list-style:none;padding:0}
+.how li{background:#000;padding:16px;color:var(--dim);font-size:14px}
+.how b{display:block;font:700 12px var(--mono);letter-spacing:.1em;color:var(--g);margin-bottom:4px}
+
+/* stepper */
+.steps{list-style:none;margin:28px 0 0;padding:0}
+.step{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:18px;padding-bottom:6px}
+.step::before{content:"";position:absolute;left:17px;top:38px;bottom:-2px;width:2px;background:var(--line)}
+.step:last-child::before{display:none}
+.step.done::before{background:var(--g2)}
+.num{width:36px;height:36px;border:2px solid var(--line2);display:grid;place-items:center;font:700 14px var(--mono);color:var(--dim);background:var(--bg);position:relative;z-index:1}
+.step.active .num{border-color:var(--g);color:#000;background:var(--g)}
+.step.done .num{border-color:var(--g);color:var(--g)}
+.step.open .num{color:var(--tx);border-color:var(--dim)}
+.sright{min-width:0}
+.shead{display:flex;align-items:baseline;gap:12px;min-height:36px;padding:6px 0 0;flex-wrap:wrap;width:100%;text-align:left;background:none;border:0;color:inherit}
+.shead:disabled{opacity:1}
+.step.locked .shead{opacity:.4}
+.stitle{font:700 13px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.ssum{color:var(--g);font-size:14px;overflow-wrap:anywhere}
+.edit{margin-left:auto;font:700 10px var(--mono);letter-spacing:.12em;color:var(--dim)}
+.shead:hover .edit{color:var(--g)}
+.sbody{padding:14px 0 28px;max-width:720px}
+
+/* upload + viewer */
+.drop{border:2px dashed var(--line2);padding:34px 20px;text-align:center;cursor:pointer;background:var(--p1)}
+.drop:hover,.drop.over{border-color:var(--g);background:var(--gd)}
+.drop b{display:block;font:700 13px var(--mono);letter-spacing:.1em;margin-bottom:4px}
+.drop small{color:var(--dim)}
+.fileinfo{margin-top:12px;font:13px var(--mono);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid var(--line2);padding:10px 12px;background:var(--p1)}
+.fileinfo .ok{color:var(--g)}
+.viewer{position:relative;height:320px;border:1px solid var(--line2);background:#0a0a0a;margin-top:12px}
+.viewer canvas{display:block;width:100%!important;height:100%!important}
+.vmsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--dim);font:12px var(--mono);letter-spacing:.1em;padding:16px}
+.vmsg small{display:block;margin-top:6px;letter-spacing:.02em;font-size:12px}
+.vhint{position:absolute;left:10px;bottom:8px;font:10px var(--mono);letter-spacing:.12em;color:#666;pointer-events:none}
+
+/* filament dropdown */
+.spool{flex:none}
+.dd{position:relative}
+.dd-trigger{width:100%;display:flex;align-items:center;gap:12px;background:#000;border:1px solid var(--line2);padding:10px 14px;text-align:left;min-height:56px}
+.dd.open .dd-trigger,.dd-trigger:hover{border-color:var(--g)}
+.dd-main{display:flex;flex-direction:column;flex:1;min-width:0;line-height:1.25}
+.dd-main small{color:var(--dim);font:11px var(--mono);letter-spacing:.06em}
+.dd-ph{flex:1;color:var(--dim)}
+.caret{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--g);transition:transform .15s;flex:none}
+.dd.open .caret{transform:rotate(180deg)}
+.dd-list{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:340px;overflow:auto;background:#050505;border:1px solid var(--g);z-index:25;box-shadow:0 14px 40px rgba(0,0,0,.85)}
+.dd.open .dd-list{display:block}
+.dd-group{padding:8px 14px 6px;font:700 10px var(--mono);letter-spacing:.16em;color:var(--g);background:#0a0a0a;border-top:1px solid var(--line);position:sticky;top:0;z-index:1}
+.dd-group:first-child{border-top:0}
+.dd-opt{width:100%;display:flex;align-items:center;gap:12px;background:none;border:0;border-left:3px solid transparent;padding:9px 14px;text-align:left}
+.dd-opt:hover:not(:disabled),.dd-opt:focus-visible{background:var(--gd);border-left-color:var(--g);outline:none}
+.dd-opt.sel{border-left-color:var(--g);background:#0b1a11}
+.dd-opt:disabled{opacity:.4}
+.tag{margin-left:auto;font:10px var(--mono);color:var(--dim);letter-spacing:.08em;white-space:nowrap}
+
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tiles.wide{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.tile{display:flex;flex-direction:column;gap:6px;align-items:flex-start;background:var(--p1);border:1px solid var(--line2);padding:12px;text-align:left}
+.tile:hover{border-color:var(--g2)}
+.tile.on{border-color:var(--g);background:#0b1a11;box-shadow:inset 0 0 0 1px var(--g)}
+.tile b{font:700 12px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.tile small{color:var(--dim);font-size:12px;line-height:1.35}
+.tag-s{font:700 10px var(--mono);letter-spacing:.1em;color:var(--g);border:1px solid var(--g2);padding:2px 6px;white-space:nowrap}
+.tile:disabled{opacity:.4;cursor:not-allowed}
+.tile:disabled:hover{border-color:var(--line2)}
+.tile.pr{position:relative;overflow:hidden;min-height:150px}
+.tile.pr>*:not(.pr-art){position:relative;z-index:1}
+.tile.pr small{max-width:54%}
+.pr-art{position:absolute!important;right:6px;bottom:4px;color:var(--g);pointer-events:none;z-index:0;line-height:0}
+.pr-art svg{opacity:.28;width:84px;height:auto}
+.tile.pr.on .pr-art svg{opacity:.4}
+.pr-art img{display:block;width:92px;height:auto;max-height:92px;object-fit:contain;opacity:.92}
+.tile.pr:not(.on) .pr-art img{opacity:.7}
+
+/* material cards */
+.mats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.mat{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--p1);border:1px solid var(--line2);padding:14px}
+.mat:hover:not(:disabled){border-color:var(--g2)}
+.mat.on{border-color:var(--g);background:#0b1a11;box-shadow:inset 0 0 0 1px var(--g)}
+.mat:disabled{opacity:.4;cursor:not-allowed}
+.mat-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mat-top b{font:700 16px var(--mono);letter-spacing:.06em}
+.mat-desc{font-size:14px}
+.mat-use{font-size:13px;color:var(--dim)}
+.mat-use i{display:block;font:700 10px var(--mono);letter-spacing:.14em;color:var(--g);font-style:normal;margin-bottom:2px}
+.mat-foot{margin-top:auto;font:700 10px var(--mono);letter-spacing:.1em;color:var(--dim)}
+
+/* density */
+.pct{display:flex;align-items:center;gap:18px}
+.pct-val{font:700 34px var(--mono);color:var(--g);min-width:104px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;--p:15%;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:8px;background:linear-gradient(90deg,var(--g) var(--p),var(--line2) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:28px;background:#fff;border:2px solid var(--g);margin-top:-10px;border-radius:0}
+input[type=range]::-moz-range-track{height:8px;background:var(--line2)}
+input[type=range]::-moz-range-progress{height:8px;background:var(--g)}
+input[type=range]::-moz-range-thumb{width:12px;height:24px;background:#fff;border:2px solid var(--g);border-radius:0}
+
+/* review */
+.rev{border:1px solid var(--line2);background:var(--p1)}
+.rv{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;padding:11px 14px;border-top:1px solid var(--line);align-items:center}
+.rv:first-child{border-top:0}
+.rv .k{font:700 10px var(--mono);letter-spacing:.14em;color:var(--dim)}
+.rv .v{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
+
+/* status + requests */
+.st{display:inline-block;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.st-sent{color:#fff;border-color:#666}
+.st-review,.st-queued{color:var(--g);border-color:var(--g2)}
+.st-printing,.st-ontheway,.st-ready{background:var(--g);color:#000;border-color:var(--g)}
+.st-delivered,.st-finished{color:var(--g);border-color:var(--g);background:var(--gd)}
+.st-issue,.st-failed{color:var(--bad);border-color:var(--bad)}
+.quick{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.quick .btn{flex:1;min-width:180px;padding:14px 18px}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.flash{border:1px solid var(--g);background:var(--gd);padding:14px 16px;margin-bottom:16px}
+.reqs{display:grid;gap:16px}
+.req{border:1px solid var(--line2);background:var(--p1);padding:20px}
+.req-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.rid{font:700 12px var(--mono);color:var(--g);margin-right:10px}
+.msg{font-size:18px;margin:14px 0 4px}
+.note{border-left:3px solid var(--g);padding:8px 12px;background:var(--gd);margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.note span{display:block;font:700 10px var(--mono);letter-spacing:.14em;color:var(--g);margin-bottom:2px}
+.track{display:flex;list-style:none;margin:20px 0 6px;padding:0}
+.track li{flex:1;font:700 10px var(--mono);letter-spacing:.08em;color:var(--dim)}
+.track li i{display:block;height:6px;background:var(--line2);margin-right:3px;margin-bottom:8px}
+.track li.done i{background:var(--g2)}
+.track li.done{color:#9fe8bd}
+.track li.now i{background:var(--g)}
+.track li.now{color:var(--g)}
+.specs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line);margin:16px 0 0;background:#050505}
+.specs>div{padding:10px 12px;min-width:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.specs dt{font:700 10px var(--mono);letter-spacing:.14em;color:var(--dim);margin-bottom:3px}
+.specs dd{margin:0;display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
+
+/* admin */
+.tabs{display:flex;border:1px solid var(--line2)}
+.tab{background:none;border:0;padding:10px 16px;font:700 12px var(--mono);letter-spacing:.1em;color:var(--dim)}
+.tab i{font-style:normal;margin-left:6px;color:var(--g)}
+.tab.on{background:var(--g);color:#000}
+.tab.on i{color:#000}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:20px}
+.stat{background:var(--p1);padding:14px 16px}
+.stat b{display:block;font:700 28px var(--mono);color:var(--g)}
+.stat span{font:700 10px var(--mono);letter-spacing:.14em;color:var(--dim)}
+.toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar .inp{flex:1;min-width:160px;padding:9px 12px}
+.split{display:grid;grid-template-columns:minmax(300px,400px) minmax(0,1fr);gap:20px;align-items:start}
+.rlist{border:1px solid var(--line2);background:var(--p1);max-height:78vh;overflow:auto}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);border-left:3px solid transparent;padding:12px 14px}
+.row:hover{background:#0c0c0c}
+.row.sel{background:#0b1a11;border-left-color:var(--g)}
+.row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row small{color:var(--dim);font:12px var(--mono);display:block;overflow:hidden;text-overflow:ellipsis}
+.row .r2{grid-column:1/-1;display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13px}
+.detail{border:1px solid var(--line2);background:var(--p1);padding:20px}
+.d-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.d-head h3{font-size:22px}
+.d-head p{margin:2px 0 0;font-size:13px}
+.filebar{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:13px}
+.statusbox{margin-top:20px;border-top:1px solid var(--line2);padding-top:6px}
+.panel{border:1px solid var(--line2);background:var(--p1);padding:20px}
+.ph{font:700 12px var(--mono);letter-spacing:.14em;color:var(--g);margin-bottom:4px}
+.colorrow{display:flex;gap:10px;align-items:center}
+input[type=color]{width:52px;height:46px;padding:2px;border:1px solid var(--line2);background:#000;flex:none}
+.colorrow .inp{font-family:var(--mono)}
+.prev{flex:none;display:grid;place-items:center;width:52px}
+.flist{border:1px solid var(--line2);background:var(--p1)}
+.fgroup{font:700 11px var(--mono);letter-spacing:.16em;color:var(--g);padding:10px 14px;background:#070707;border-bottom:1px solid var(--line)}
+.frow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.frow.off .fmain{opacity:.5}
+.fmain{flex:1;min-width:120px;display:flex;flex-direction:column;line-height:1.25}
+.fmain small{color:var(--dim);font:11px var(--mono)}
+
+#toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:60;max-width:calc(100vw - 32px)}
+.t{background:#000;border:1px solid var(--g);padding:11px 16px;font:13px var(--mono);box-shadow:0 8px 30px rgba(0,0,0,.7)}
+.t.bad{border-color:var(--bad);color:var(--bad)}
+
+@media (max-width:860px){
+  .split{grid-template-columns:1fr}
+  .rlist{max-height:none}
+  .chip{display:none}
+}
+@media (max-width:560px){
+  .step{grid-template-columns:30px minmax(0,1fr);column-gap:12px}
+  .step::before{left:14px}
+  .num{width:30px;height:30px}
+  .rv{grid-template-columns:80px minmax(0,1fr) auto}
+  .loginbox .btn{padding:0 14px}
+  .track li{font-size:9px;letter-spacing:.04em}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+  <div class="brand"><span class="mark"></span><span>TSA</span><span class="sl">//</span><span class="sub">3D PRINT SERVICE</span></div>
+  <nav id="nav" aria-label="Main"></nav>
+</div></header>
+<main><div id="app"></div><noscript><div class="wrap"><p>This site needs JavaScript.</p></div></noscript></main>
+<footer><div class="wrap">TSA 3D PRINT SERVICE · BAMBU LAB P2S / A1</div></footer>
+<div id="toast" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* =====================================================================
+   CONFIG — the only part you normally need to edit
+   ===================================================================== */
+const CONFIG = {
+  // SHA-256 hash of the admin password (typed into the email field to open the dashboard).
+  // To change it:  printf '%s' 'new password' | sha256sum   then paste the hash below.
+  adminHash: '4c1b5d12806aaee31bb46c29058c0f6e2bc81f8024e14b2fa107d5a561983e91',
+
+  // Only allow these email domains, e.g. ['myschool.org']. Empty list = any email works.
+  schoolDomains: [],
+
+  // Max model file size in MB.
+  maxFileMB: 15,
+
+  // Shared storage so requests from every student's device show up on YOUR dashboard.
+  // Leave as null for "local mode" (data stays in one browser only — fine for a demo).
+  // To turn it on, paste your Firebase web config here, e.g.:
+  // firebase: { apiKey:'…', authDomain:'…', projectId:'…', appId:'…' }
+  // (see README.md for the 5-minute setup)
+  firebase: null
+};
+
+/* =====================================================================
+   Constants
+   ===================================================================== */
+const STATUSES = [
+  {id:'sent',      label:'Request sent',     msg:'Your request has been sent.'},
+  {id:'review',    label:'Under review',     msg:'Your request is being reviewed.'},
+  {id:'queued',    label:'Approved / queued',msg:'Your request was approved and is in the print queue.'},
+  {id:'printing',  label:'Printing',         msg:'Your print is in progress.'},
+  {id:'ontheway',  label:'On the way',       msg:'Your print is on the way.'},
+  {id:'ready',     label:'Ready for pickup', msg:'Your print is ready for pickup.'},
+  {id:'delivered', label:'Delivered',        msg:'Your print has been delivered.'},
+  {id:'finished',  label:'Finished printing',msg:'Your print has finished printing.'},
+  {id:'failed',    label:'Print failed',     msg:'Your print failed. We need a little more info from you. See the note below.'},
+  {id:'issue',     label:'Needs attention',  msg:'There is a problem with your request. See the note below.'}
+];
+const PATTERNS = [
+  {id:'grid',      label:'Grid',      note:'Fast, solid all-rounder'},
+  {id:'gyroid',    label:'Gyroid',    note:'Strong in every direction'},
+  {id:'cubic',     label:'Cubic',     note:'Even strength, efficient'},
+  {id:'triangles', label:'Triangles', note:'Stiff, good for loads'},
+  {id:'honeycomb', label:'Honeycomb', note:'Classic, strong'},
+  {id:'lines',     label:'Lines',     note:'Fastest and lightest'}
+];
+const PRINTERS = [
+  {id:'fastest', label:'Fastest available', tag:'AUTO',       sub:'We pick whichever printer can start your job soonest. PLA only.'},
+  {id:'p2s',     label:'Bambu Lab P2S',     tag:'ENCLOSED',   sub:'Ideal for taller prints. Required for ABS, PETG and PAHT-CF.'},
+  {id:'a1',      label:'Bambu Lab A1',      tag:'OPEN FRAME', sub:'Compact open-frame printer. Required for TPU.'}
+];
+// req = the only printer this material may be printed on (null = any printer).
+const MATERIALS = [
+  {id:'PLA', label:'PLA', req:null, tag:'ANY PRINTER',
+   desc:'Easy, forgiving and fast. Crisp detail and the widest range of colors.',
+   use:'Prototypes, display models, decorations, school projects. Not for heat or outdoor use.'},
+  {id:'PETG', label:'PETG', req:'p2s', tag:'P2S ONLY',
+   desc:'Tougher than PLA with a little flex. Handles moisture, chemicals and mild heat.',
+   use:'Functional parts, brackets, enclosures, anything exposed to water.'},
+  {id:'ABS', label:'ABS', req:'p2s', tag:'P2S ONLY',
+   desc:'Strong and heat-resistant. Can be sanded and smoothed, but warps without an enclosure.',
+   use:'Durable housings, parts near heat, anything that takes a beating.'},
+  {id:'TPU', label:'TPU', req:'a1', tag:'A1 ONLY',
+   desc:'Flexible and rubber-like, absorbs impacts. Prints slowly.',
+   use:'Gaskets, grips, bumpers, wheels and tires, phone cases.'},
+  {id:'PAHT-CF', label:'PAHT-CF', req:'p2s', tag:'P2S ONLY',
+   desc:'Carbon-fiber-filled high-temperature nylon. Very stiff, strong and heat-resistant.',
+   use:'Structural and engineering parts, jigs, robot and drone frames.'}
+];
+const TYPE_SUGGESTIONS = ['PLA','PLA Matte','PLA Silk','PETG','ABS','TPU','PAHT-CF'];
+const EXTS = ['stl','obj','3mf','step','stp','ply'];
+const STAGE = {sent:0,review:1,queued:2,printing:3,ontheway:4,ready:4,finished:5,delivered:5};
+const BUILD_MM = 256;
+
+/* =====================================================================
+   Helpers
+   ===================================================================== */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+const shortId = id => String(id).replace(/-/g,'').slice(0,6).toUpperCase();
+const fmtBytes = n => n<1024 ? n+' B' : n<1048576 ? (n/1024).toFixed(1)+' KB' : (n/1048576).toFixed(1)+' MB';
+const fmtDate = t => new Date(t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const ext = name => (String(name).split('.').pop() || '').toLowerCase();
+const normHex = h => { h=String(h||'').trim(); if(h[0]!=='#') h='#'+h; return /^#[0-9a-f]{6}$/i.test(h) ? h.toLowerCase() : null; };
+const safeHex = h => normHex(h) || '#888888';
+const statusOf = id => STATUSES.find(s=>s.id===id) || STATUSES[0];
+const patById = id => PATTERNS.find(p=>p.id===id);
+const prnById = id => PRINTERS.find(p=>p.id===id);
+const matById = id => MATERIALS.find(m=>m.id===id);
+// Maps a filament's free-text type ("PLA", "PLA Matte", "PETG"…) to one of the MATERIALS.
+const matOf = type => {
+  const t=String(type||'').toUpperCase().trim();
+  return MATERIALS.find(m=>t===m.id||(t.startsWith(m.id)&&!/[A-Z0-9]/.test(t.charAt(m.id.length))))||null;
+};
+const allowedPrinters = matId => { const m=matById(matId); return m&&m.req?[m.req]:['fastest','p2s','a1']; };
+const dimsText = d => {
+  if(!d) return '';
+  let t = `${d.x} × ${d.y} × ${d.z} mm`;
+  if(Math.max(d.x,d.y,d.z) > BUILD_MM) t += ` — larger than the ${BUILD_MM} mm build volume`;
+  return t;
+};
+async function sha256Hex(s){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
+  set(k,v){ localStorage.setItem(k, JSON.stringify(v)); },
+  remove(k){ try{ localStorage.removeItem(k); }catch{} }
+};
+function toast(msg, kind){
+  const el=document.createElement('div'); el.className='t'+(kind==='bad'?' bad':''); el.textContent=msg;
+  $('#toast').appendChild(el); setTimeout(()=>el.remove(), 4200);
+}
+
+/* ---- icons ---- */
+function spool(hex,size=28){
+  const c=safeHex(hex);
+  return `<svg class="spool" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="2" y="2" width="20" height="3" fill="#cfcfcf"/>
+    <rect x="2" y="19" width="20" height="3" fill="#cfcfcf"/>
+    <rect x="5.5" y="5.5" width="13" height="13" fill="${c}" stroke="rgba(255,255,255,.3)"/>
+    <path d="M5.5 9h13M5.5 12h13M5.5 15h13" stroke="rgba(0,0,0,.28)" stroke-width="1"/>
+  </svg>`;
+}
+function patSvg(id){
+  let d='';
+  if(id==='grid'){ for(let i=8;i<48;i+=10) d+=`M0 ${i}H48M${i} 0V48`; }
+  else if(id==='lines'){ for(let i=-48;i<96;i+=10) d+=`M${i} 48L${i+48} 0`; }
+  else if(id==='cubic'){ for(let i=-48;i<96;i+=12) d+=`M${i} 48L${i+48} 0M${i} 0L${i+48} 48`; }
+  else if(id==='triangles'){
+    for(let y=6;y<48;y+=13.9) d+=`M0 ${y.toFixed(1)}H48`;
+    for(let i=-48;i<96;i+=16) d+=`M${i} 48L${(i+27.7).toFixed(1)} 0M${(i+27.7).toFixed(1)} 48L${i} 0`;
+  }
+  else if(id==='honeycomb'){
+    const r=8,w=Math.sqrt(3)*r;
+    for(let row=-1;row<5;row++) for(let col=-1;col<5;col++){
+      const cx=col*w+(row%2?w/2:0), cy=row*1.5*r;
+      for(let k=0;k<6;k++){ const a=Math.PI/180*(60*k-30); d+=(k?'L':'M')+(cx+r*Math.cos(a)).toFixed(1)+' '+(cy+r*Math.sin(a)).toFixed(1); }
+      d+='Z';
+    }
+  }
+  else { for(let y=8;y<48;y+=12){ d+=`M-6 ${y}`; for(let x=-6;x<54;x+=12) d+=`q3 -8 6 0 t6 0`; } }
+  return `<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="${d}" stroke="#22e56f" stroke-width="1.5" fill="none" stroke-linecap="square"/><rect x=".5" y=".5" width="47" height="47" fill="none" stroke="#333"/></svg>`;
+}
+
+/* =====================================================================
+   Storage: LocalStore (this browser only)  /  CloudStore (Firebase)
+   ===================================================================== */
+function starterFilaments(){
+  const mk=(type,name,hex)=>({id:uid(),type,name,hex,available:true});
+  return [
+    mk('PLA','Black','#1a1a1a'), mk('PLA','White','#f5f5f5'), mk('PLA','Grey','#8b8b8b'),
+    mk('PLA','Red','#e53935'), mk('PLA','Blue','#1e88e5'), mk('PLA','Green','#2fcf6b'),
+    mk('PETG','Black','#1a1a1a'), mk('PETG','Orange','#fb8c00'), mk('TPU','Black','#1a1a1a'),
+    mk('ABS','Black','#1a1a1a'), mk('ABS','White','#f5f5f5'), mk('PAHT-CF','Black','#222222')
+  ];
+}
+function idb(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('tsa-print',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('models');
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function idbOp(mode,fn){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction('models',mode); const rq=fn(tx.objectStore('models'));
+    tx.oncomplete=()=>res(rq&&rq.result); tx.onerror=()=>rej(tx.error);
+  });
+}
+const LocalStore = {
+  mode:'local',
+  async init(){ if(localStorage.getItem('tsa.filaments')===null) LS.set('tsa.filaments', starterFilaments()); },
+  async listFilaments(){ return LS.get('tsa.filaments',[]); },
+  async saveFilament(f){ const a=LS.get('tsa.filaments',[]); const i=a.findIndex(x=>x.id===f.id); if(i>=0) a[i]=f; else a.push(f); LS.set('tsa.filaments',a); },
+  async deleteFilament(id){ LS.set('tsa.filaments', LS.get('tsa.filaments',[]).filter(f=>f.id!==id)); },
+  async ensureUser(email){ const u=LS.get('tsa.users',{}); if(!u[email]) u[email]={email,createdAt:Date.now()}; LS.set('tsa.users',u); },
+  async listRequests(email){
+    const a=LS.get('tsa.requests',[]);
+    return (email?a.filter(r=>r.email===email):a).sort((x,y)=>y.createdAt-x.createdAt);
+  },
+  async createRequest(req,buffer){
+    await idbOp('readwrite',s=>s.put(buffer,req.id));
+    const a=LS.get('tsa.requests',[]); a.push(req); LS.set('tsa.requests',a);
+  },
+  async updateRequest(id,patch){ const a=LS.get('tsa.requests',[]); const r=a.find(x=>x.id===id); if(r){ Object.assign(r,patch); LS.set('tsa.requests',a); } },
+  async deleteRequest(id){ LS.set('tsa.requests', LS.get('tsa.requests',[]).filter(r=>r.id!==id)); await idbOp('readwrite',s=>s.delete(id)); },
+  async getModel(req){ return idbOp('readonly',s=>s.get(req.id)); }
+};
+const CloudStore = {
+  mode:'cloud',
+  async init(){
+    const base='https://www.gstatic.com/firebasejs/10.12.2/';
+    const [app,fs]=await Promise.all([import(base+'firebase-app.js'), import(base+'firebase-firestore.js')]);
+    this.fs=fs; this.db=fs.getFirestore(app.initializeApp(CONFIG.firebase));
+  },
+  col(...p){ return this.fs.collection(this.db,...p); },
+  ref(...p){ return this.fs.doc(this.db,...p); },
+  async listFilaments(){ const s=await this.fs.getDocs(this.col('filaments')); return s.docs.map(d=>({id:d.id,...d.data()})); },
+  async saveFilament(f){ const {id,...rest}=f; await this.fs.setDoc(this.ref('filaments',id),rest); },
+  async deleteFilament(id){ await this.fs.deleteDoc(this.ref('filaments',id)); },
+  async ensureUser(email){ await this.fs.setDoc(this.ref('users',email.replace(/\//g,'_')),{email,lastSeen:Date.now()},{merge:true}); },
+  async listRequests(email){
+    const q=email?this.fs.query(this.col('requests'),this.fs.where('email','==',email)):this.col('requests');
+    const s=await this.fs.getDocs(q);
+    return s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.createdAt-a.createdAt);
+  },
+  async createRequest(req,buffer,onProgress){
+    const {id,...rest}=req, CH=900000, u8=new Uint8Array(buffer), n=Math.max(1,Math.ceil(u8.length/CH));
+    for(let i=0;i<n;i++){
+      await this.fs.setDoc(this.ref('requests',id,'chunks',String(i).padStart(4,'0')),
+        {i,data:this.fs.Bytes.fromUint8Array(u8.slice(i*CH,(i+1)*CH))});
+      if(onProgress) onProgress(i+1,n);
+    }
+    await this.fs.setDoc(this.ref('requests',id),{...rest,chunks:n});
+  },
+  async updateRequest(id,patch){ await this.fs.updateDoc(this.ref('requests',id),patch); },
+  async deleteRequest(id){
+    const s=await this.fs.getDocs(this.col('requests',id,'chunks'));
+    await Promise.all(s.docs.map(d=>this.fs.deleteDoc(d.ref)));
+    await this.fs.deleteDoc(this.ref('requests',id));
+  },
+  async getModel(req){
+    const s=await this.fs.getDocs(this.col('requests',req.id,'chunks'));
+    const parts=s.docs.map(d=>d.data()).sort((a,b)=>a.i-b.i).map(d=>d.data.toUint8Array());
+    const out=new Uint8Array(parts.reduce((n,p)=>n+p.length,0)); let o=0;
+    for(const p of parts){ out.set(p,o); o+=p.length; }
+    return out.buffer;
+  }
+};
+let store = CONFIG.firebase ? CloudStore : LocalStore;
+
+/* =====================================================================
+   App state
+   ===================================================================== */
+const S = {
+  user: (LS.get('tsa.session',null)||{}).email || null,
+  admin: sessionStorage.getItem('tsa.admin')==='1',
+  view:'login', adminTab:'requests',
+  filaments:[], requests:[], selectedId:null,
+  filter:{status:'all',q:''},
+  draft:null, step:1, flash:null, sending:false,
+  filForm:{type:'',name:'',hex:'#22e56f'}, editFil:null,
+  cache:new Map(), lastSync:0
+};
+const newDraft = () => ({max:1,material:null,name:'',fileName:'',fileSize:0,buffer:null,dims:null,filamentId:null,pattern:'grid',pct:15,printer:'fastest',notes:''});
+const filById = id => S.filaments.find(f=>f.id===id);
+const filText = f => f ? `${f.type} · ${f.name}` : '—';
+function groupByType(list){
+  const m=new Map();
+  [...list].sort((a,b)=>a.type.localeCompare(b.type)||a.name.localeCompare(b.name)).forEach(f=>{ if(!m.has(f.type)) m.set(f.type,[]); m.get(f.type).push(f); });
+  return [...m];
+}
+function pctHint(v){
+  if(v<=10) return 'Light — decorative parts. Fastest and uses the least filament.';
+  if(v<=20) return 'Standard — good for most prints.';
+  if(v<=50) return 'Strong — functional parts that take some load.';
+  if(v<100) return 'Very strong — slower and uses a lot more filament.';
+  return 'Solid — slowest and heaviest. Only pick this if you really need it.';
+}
+function setSliderFill(el){ el.style.setProperty('--p', ((el.value-el.min)/(el.max-el.min)*100)+'%'); }
+
+/* =====================================================================
+   3D preview (three.js, loaded on demand)
+   ===================================================================== */
+let LIB=null;
+function lib3(){
+  if(!LIB) LIB=Promise.all([import('three'),import('three/addons/controls/OrbitControls.js')]).then(([T,oc])=>({T,OrbitControls:oc.OrbitControls}));
+  return LIB;
+}
+async function mountViewer(el,buffer,x,onDims){
+  if(!el) return;
+  const tok=el._tok={};
+  if(!['stl','obj','3mf','ply'].includes(x)){
+    el.innerHTML=`<div class="vmsg"><div>NO PREVIEW FOR .${esc(x.toUpperCase())}<small>The file is saved and can be downloaded to open in Bambu Studio.</small></div></div>`;
+    return;
+  }
+  el.innerHTML='<div class="vmsg"><div>LOADING PREVIEW…</div></div>';
+  try{
+    const {T,OrbitControls}=await lib3();
+    if(el._tok!==tok||!el.isConnected) return;
+    const mat=new T.MeshStandardMaterial({color:0x2fd36d,metalness:.1,roughness:.55,side:T.DoubleSide});
+    let obj;
+    if(x==='stl'){
+      const {STLLoader}=await import('three/addons/loaders/STLLoader.js');
+      obj=new T.Mesh(new STLLoader().parse(buffer),mat); obj.rotation.x=-Math.PI/2;
+    } else if(x==='ply'){
+      const {PLYLoader}=await import('three/addons/loaders/PLYLoader.js');
+      const g=new PLYLoader().parse(buffer); g.computeVertexNormals();
+      obj=new T.Mesh(g,mat); obj.rotation.x=-Math.PI/2;
+    } else if(x==='obj'){
+      const {OBJLoader}=await import('three/addons/loaders/OBJLoader.js');
+      obj=new OBJLoader().parse(new TextDecoder().decode(buffer));
+    } else {
+      const {ThreeMFLoader}=await import('three/addons/loaders/3MFLoader.js');
+      obj=new ThreeMFLoader().parse(buffer);
+    }
+    obj.traverse(c=>{ if(c.isMesh) c.material=mat; });
+    if(el._tok!==tok||!el.isConnected) return;
+
+    const box=new T.Box3().setFromObject(obj);
+    if(box.isEmpty()) throw new Error('empty model');
+    const size=box.getSize(new T.Vector3()), ctr=box.getCenter(new T.Vector3());
+    obj.position.sub(ctr); obj.position.y+=size.y/2;
+    if(onDims) onDims({x:+size.x.toFixed(1),y:+size.z.toFixed(1),z:+size.y.toFixed(1)});
+
+    const m=Math.max(size.x,size.y,size.z)||1;
+    const scene=new T.Scene(); scene.add(obj);
+    scene.add(new T.HemisphereLight(0xffffff,0x223322,1.0));
+    const key=new T.DirectionalLight(0xffffff,2.2); key.position.set(m,m*1.6,m*1.2); scene.add(key);
+    scene.add(new T.GridHelper(m*2.4,24,0x22e56f,0x242424));
+    const w=el.clientWidth||600,h=el.clientHeight||320;
+    const cam=new T.PerspectiveCamera(40,w/h,m/200,m*200); cam.position.set(m*1.5,m*1.1,m*1.7);
+    const r=new T.WebGLRenderer({antialias:true});
+    r.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); r.setSize(w,h,false); r.setClearColor(0x0a0a0a);
+    el.innerHTML=''; el.appendChild(r.domElement);
+    el.insertAdjacentHTML('beforeend','<div class="vhint">DRAG TO ROTATE · SCROLL TO ZOOM</div>');
+    const ctl=new OrbitControls(cam,r.domElement);
+    ctl.target.set(0,size.y/2,0); ctl.enableDamping=true; ctl.autoRotate=true; ctl.autoRotateSpeed=1.5;
+    ctl.addEventListener('start',()=>{ ctl.autoRotate=false; });
+    const ro=new ResizeObserver(()=>{ const W=el.clientWidth,H=el.clientHeight; if(W&&H){ r.setSize(W,H,false); cam.aspect=W/H; cam.updateProjectionMatrix(); } });
+    ro.observe(el);
+    const loop=()=>{
+      if(el._tok!==tok||!el.isConnected){
+        ro.disconnect(); ctl.dispose(); obj.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); mat.dispose(); r.dispose(); r.forceContextLoss(); return;
+      }
+      ctl.update(); r.render(scene,cam); requestAnimationFrame(loop);
+    };
+    loop();
+  }catch(e){
+    console.error(e);
+    if(el._tok===tok) el.innerHTML='<div class="vmsg"><div>PREVIEW UNAVAILABLE<small>The file is still saved and can be downloaded.</small></div></div>';
+  }
+}
+
+/* =====================================================================
+   Views
+   ===================================================================== */
+function navHtml(){
+  const badge = store.mode==='local' ? '<span class="badge" title="Data is stored in this browser only. See README.md to turn on shared storage.">LOCAL MODE</span>' : '';
+  if(S.admin) return `${badge}<span class="chip adm">ADMIN</span><button class="nbtn" data-act="signout">SIGN OUT</button>`;
+  if(S.user) return `${badge}
+    <button class="nbtn ${S.view==='new'?'on':''}" data-act="nav" data-view="new">NEW REQUEST</button>
+    <button class="nbtn ${S.view==='mine'?'on':''}" data-act="nav" data-view="mine">MY REQUESTS</button>
+    <span class="chip" title="${esc(S.user)}">${esc(S.user)}</span>
+    <button class="nbtn" data-act="signout">SIGN OUT</button>`;
+  return badge;
+}
+
+function loginHtml(){
+  return `<section class="wrap hero">
+    <p class="eyebrow">// TECHNOLOGY STUDENT ASSOCIATION</p>
+    <h1>Enter your school email to start the print request</h1>
+    <form id="loginForm" class="loginbox" autocomplete="off">
+      <input id="loginInput" type="text" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@school.edu" aria-label="School email">
+      <button class="btn primary" type="submit">START →</button>
+    </form>
+    <p class="err" id="loginErr" role="alert"></p>
+    <p class="hint">No password needed. Your email is only used to show you the status of your prints.</p>
+    <ul class="how">
+      <li><b>01 UPLOAD</b>Send us your STL, OBJ or 3MF.</li>
+      <li><b>02 CUSTOMIZE</b>Pick filament, infill and printer.</li>
+      <li><b>03 TRACK</b>Watch the status until it arrives.</li>
+    </ul>
+  </section>`;
+}
+
+/* ---- wizard ---- */
+const matColors = matId => S.filaments.filter(f=>{ const m=matOf(f.type); return m&&m.id===matId; });
+const matInStock = matId => matColors(matId).some(f=>f.available!==false);
+const STEPS=[
+  {t:'Your name',       valid:d=>d.name.trim().length>=2, sum:d=>d.name.trim(), body:bodyName},
+  {t:'Upload model',    valid:d=>!!d.buffer, sum:d=>`${d.fileName} · ${fmtBytes(d.fileSize)}`, body:bodyUpload},
+  {t:'Choose material', valid:d=>!!matById(d.material)&&matInStock(d.material), sum:d=>d.material, body:bodyMaterial},
+  {t:'Choose color',    valid:d=>{ const f=filById(d.filamentId), m=f&&matOf(f.type); return !!f&&f.available!==false&&!!m&&m.id===d.material; }, sum:d=>filText(filById(d.filamentId)), body:bodyFilament},
+  {t:'Infill pattern',  valid:d=>!!patById(d.pattern), sum:d=>patById(d.pattern).label, body:bodyPattern},
+  {t:'Infill density',  valid:d=>d.pct>=5&&d.pct<=100, sum:d=>d.pct+'%', body:bodyDensity},
+  {t:'Printer',         valid:d=>!!prnById(d.printer)&&allowedPrinters(d.material).includes(d.printer), sum:d=>prnById(d.printer).label, body:bodyPrinter},
+  {t:'Review & submit', valid:()=>false, sum:()=>'', body:bodyReview}
+];
+const canReach = n => n<=S.draft.max && STEPS.slice(0,n-1).every(s=>s.valid(S.draft));
+const navBtns = () => `<div class="actions">${S.step>1?'<button class="btn ghost" type="button" data-act="back">BACK</button>':''}<button class="btn primary" type="button" id="btn-next" data-act="next" ${STEPS[S.step-1].valid(S.draft)?'':'disabled'}>CONTINUE</button></div>`;
+
+function wizardHtml(){
+  return `<section class="wrap narrow">
+    <p class="eyebrow">// NEW PRINT REQUEST</p>
+    <h1 class="h1s">Let's print something</h1>
+    <p class="hint">Signed in as <b>${esc(S.user)}</b></p>
+    <ol class="steps">${STEPS.map((st,i)=>stepHtml(st,i+1)).join('')}</ol>
+  </section>`;
+}
+function stepHtml(st,n){
+  const d=S.draft, active=n===S.step, ok=n<STEPS.length&&st.valid(d)&&canReach(n), reach=canReach(n);
+  const cls=active?'active':ok?'done':reach?'open':'locked';
+  const showSum=!active&&ok;
+  return `<li class="step ${cls}">
+    <div class="num">${ok&&!active?'✓':n}</div>
+    <div class="sright">
+      <button type="button" class="shead" data-act="goto" data-step="${n}" ${reach&&!active?'':'disabled'} ${active?'aria-current="step"':''}>
+        <span class="stitle">${esc(st.t)}</span>
+        ${showSum?`<span class="ssum">${esc(st.sum(d))}</span><span class="edit">EDIT</span>`:''}
+      </button>
+      ${active?`<div class="sbody">${st.body()}</div>`:''}
+    </div></li>`;
+}
+function bodyName(){
+  const d=S.draft;
+  return `<label class="lbl" for="f-name" style="margin-top:0">FULL NAME</label>
+    <input class="inp" id="f-name" value="${esc(d.name)}" maxlength="60" placeholder="First Last" autocomplete="name">
+    <div class="ro"><span>EMAIL</span>${esc(S.user)}</div>${navBtns()}`;
+}
+function bodyUpload(){
+  const d=S.draft;
+  return `<div class="drop" id="drop" tabindex="0" role="button" data-act="pick" aria-label="Choose a model file">
+      <b>DROP YOUR MODEL HERE</b><small>or click to browse · ${EXTS.map(e=>e.toUpperCase()).join(' · ')} · max ${CONFIG.maxFileMB} MB</small></div>
+    <input type="file" id="fileInput" hidden accept="${EXTS.map(e=>'.'+e).join(',')}">
+    ${d.buffer?`<div class="fileinfo"><span><span class="ok">✓</span> ${esc(d.fileName)} · ${fmtBytes(d.fileSize)}</span><span id="dimsLine" class="dim">${esc(dimsText(d.dims))}</span></div><div class="viewer" id="viewer"></div>`:''}
+    ${navBtns()}`;
+}
+function bodyMaterial(){
+  const d=S.draft;
+  return `<div class="mats">${MATERIALS.map(m=>{
+    const n=matColors(m.id).filter(f=>f.available!==false).length, off=n===0, on=d.material===m.id;
+    return `<button type="button" class="mat ${on?'on':''}" data-act="mat" data-id="${m.id}" ${off?'disabled':''} aria-pressed="${on}">
+      <span class="mat-top"><b>${esc(m.label)}</b><span class="tag-s">${m.tag}</span></span>
+      <span class="mat-desc">${esc(m.desc)}</span>
+      <span class="mat-use"><i>GOOD FOR</i>${esc(m.use)}</span>
+      <span class="mat-foot">${off?'NO COLORS IN STOCK':n+' COLOR'+(n>1?'S':'')+' AVAILABLE'}</span></button>`;
+  }).join('')}</div>${navBtns()}`;
+}
+function bodyFilament(){
+  const d=S.draft, sel=filById(d.filamentId), pool=matColors(d.material);
+  if(!pool.length) return `<div class="empty">No ${esc(d.material)} colors have been added yet. Please pick a different material.</div>${navBtns()}`;
+  const trig = sel
+    ? `${spool(sel.hex,30)}<span class="dd-main"><b>${esc(sel.name)}</b><small>${esc(sel.type)}</small></span><span class="tag">${safeHex(sel.hex).toUpperCase()}</span>`
+    : `<span class="dd-ph">Select a filament…</span>`;
+  const list = groupByType(pool).map(([type,items])=>
+    `<div class="dd-group">${esc(type)}</div>`+items.map(f=>{
+      const off=f.available===false;
+      return `<button type="button" role="option" class="dd-opt ${f.id===d.filamentId?'sel':''}" data-act="pickfil" data-id="${esc(f.id)}" ${off?'disabled':''} aria-selected="${f.id===d.filamentId}">
+        ${spool(f.hex,30)}<span class="dd-main"><b>${esc(f.name)}</b><small>${esc(f.type)}</small></span>
+        <span class="tag">${off?'OUT OF STOCK':safeHex(f.hex).toUpperCase()}</span></button>`;
+    }).join('')).join('');
+  return `<p class="hint" style="margin:0 0 12px">Showing <b>${esc(d.material)}</b> colors. Can't find the color you want? <button type="button" class="link" data-act="goto" data-step="3">PICK A DIFFERENT MATERIAL</button></p>
+    <div class="dd" id="dd">
+      <button type="button" class="dd-trigger" data-act="dd" aria-haspopup="listbox" aria-expanded="false">${trig}<span class="caret"></span></button>
+      <div class="dd-list" role="listbox">${list}</div></div>${navBtns()}`;
+}
+function bodyPattern(){
+  const d=S.draft;
+  return `<div class="tiles">${PATTERNS.map(p=>`<button type="button" class="tile ${d.pattern===p.id?'on':''}" data-act="pat" data-id="${p.id}" aria-pressed="${d.pattern===p.id}">${patSvg(p.id)}<b>${p.label}</b><small>${p.note}</small></button>`).join('')}</div>${navBtns()}`;
+}
+function bodyDensity(){
+  const d=S.draft;
+  return `<div class="pct"><span class="pct-val" id="pctVal">${d.pct}%</span>
+      <input type="range" id="pct" min="5" max="100" step="5" value="${d.pct}" aria-label="Infill density"></div>
+    <div class="chips">${[10,15,20,40,100].map(v=>`<button type="button" class="btn sm ghost ${d.pct===v?'on':''}" data-act="chip" data-v="${v}">${v}%</button>`).join('')}</div>
+    <p class="hint" id="pctHint">${pctHint(d.pct)}</p>${navBtns()}`;
+}
+// Simple line-art silhouettes (faint watermark on the printer buttons). Swap for real photos if you like.
+function printerArt(id){
+  const svg=printerSvg(id);
+  if(id==='fastest') return svg;
+  // Real photo from img/<id>.png (transparent PNG). If the file is missing, the line art stays.
+  return svg+`<img src="img/${id}.png" alt="" loading="lazy" onload="this.previousElementSibling.style.display='none'" onerror="this.remove()">`;
+}
+function printerSvg(id){
+  const a='viewBox="0 0 120 100" width="112" height="94" fill="none" stroke="currentColor" stroke-width="2"';
+  if(id==='p2s') return `<svg ${a}><rect x="24" y="14" width="72" height="78"/><rect x="30" y="22" width="60" height="62"/><rect x="42" y="5" width="36" height="9"/><path d="M30 40H90M36 76H84"/><rect x="54" y="40" width="12" height="10"/></svg>`;
+  if(id==='a1') return `<svg ${a}><rect x="14" y="82" width="92" height="10"/><rect x="30" y="72" width="56" height="6"/><rect x="92" y="10" width="9" height="72"/><path d="M92 28H32M92 36H32"/><rect x="52" y="28" width="14" height="16"/><rect x="40" y="4" width="22" height="14"/></svg>`;
+  return `<svg ${a}><path d="M18 22L52 50L18 78M58 22L92 50L58 78"/></svg>`;
+}
+function bodyPrinter(){
+  const d=S.draft, m=matById(d.material), ok=allowedPrinters(d.material);
+  const note=m&&m.req?`<p class="hint" style="margin:0 0 12px">${esc(m.label)} can only be printed on the <b>${esc(prnById(m.req).label)}</b>, so the other printers are unavailable.</p>`:'';
+  return `${note}<div class="tiles wide">${PRINTERS.map(p=>{
+    const off=!ok.includes(p.id);
+    return `<button type="button" class="tile pr ${d.printer===p.id?'on':''}" data-act="prn" data-id="${p.id}" ${off?'disabled':''} aria-pressed="${d.printer===p.id}">
+      <span class="pr-art" aria-hidden="true">${printerArt(p.id)}</span>
+      <span class="tag-s">${p.tag}</span><b>${p.label}</b><small>${p.sub}</small>
+      ${off?`<span class="tag" style="margin:2px 0 0">NOT AVAILABLE FOR ${esc(m.label)}</span>`:''}</button>`;
+  }).join('')}</div>${navBtns()}`;
+}
+function bodyReview(){
+  const d=S.draft, f=filById(d.filamentId);
+  const row=(k,v,n)=>`<div class="rv"><span class="k">${k}</span><span class="v">${v}</span>${n?`<button type="button" class="link" data-act="goto" data-step="${n}">EDIT</button>`:'<span></span>'}</div>`;
+  return `<div class="rev">
+      ${row('NAME',esc(d.name.trim()),1)}
+      ${row('EMAIL',esc(S.user))}
+      ${row('MODEL',`${esc(d.fileName)} · ${fmtBytes(d.fileSize)}${d.dims?'<br><span class="dim">'+esc(dimsText(d.dims))+'</span>':''}`,2)}
+      ${row('MATERIAL',esc(d.material),3)}
+      ${row('COLOR',f?`${spool(f.hex,22)}<span>${esc(filText(f))}</span>`:'—',4)}
+      ${row('INFILL',`${esc(patById(d.pattern).label)} · ${d.pct}%`,5)}
+      ${row('PRINTER',esc(prnById(d.printer).label),7)}
+    </div>
+    <label class="lbl" for="f-notes">NOTES FOR THE PRINT TEAM (OPTIONAL)</label>
+    <textarea class="inp" id="f-notes" maxlength="500" placeholder="Orientation, supports, deadline — anything we should know.">${esc(d.notes)}</textarea>
+    <div class="actions"><button class="btn ghost" type="button" data-act="back">BACK</button>
+      <button class="btn primary" type="button" id="submitBtn" data-act="submit" ${S.sending?'disabled':''}>SUBMIT REQUEST</button></div>`;
+}
+
+/* ---- student: my requests ---- */
+const spec=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
+function tracker(st){
+  if(st==='issue'||st==='failed') return '';
+  const idx=STAGE[st]??0, labels=['SENT','REVIEW','QUEUED','PRINTING',st==='ready'?'READY':'ON THE WAY','DONE'];
+  return `<ol class="track">${labels.map((l,i)=>`<li class="${st==='delivered'||st==='finished'||i<idx?'done':i===idx?'now':''}"><i></i>${l}</li>`).join('')}</ol>`;
+}
+function reqCard(r){
+  const s=statusOf(r.status), f=r.filament||{}, p=prnById(r.printer), pt=patById(r.pattern);
+  return `<article class="req">
+    <div class="req-head"><div><span class="rid">#${shortId(r.id)}</span><b>${esc(r.fileName)}</b></div><span class="st st-${s.id}">${esc(s.label)}</span></div>
+    <p class="msg">${esc(s.msg)}</p>
+    ${r.statusNote?`<div class="note"><span>NOTE FROM THE PRINT TEAM</span>${esc(r.statusNote)}</div>`:''}
+    ${r.studentInfo?`<div class="note"><span>YOUR REPLY</span>${esc(r.studentInfo)}</div>`:''}
+    ${r.status==='failed'?`<label class="lbl" for="reply-${esc(r.id)}">SEND MORE INFO</label>
+      <textarea class="inp" id="reply-${esc(r.id)}" maxlength="600" placeholder="Answer the note above, describe what you need, or mention a fixed file you can send."></textarea>
+      <div class="actions"><button class="btn primary sm" data-act="reply" data-id="${esc(r.id)}">SEND REPLY</button></div>`:''}
+    ${tracker(r.status)}
+    <dl class="specs">
+      ${spec('FILAMENT',`${spool(f.hex,22)}<span>${esc(f.type||'')} · ${esc(f.name||'')}</span>`)}
+      ${r.material?spec('MATERIAL',esc(r.material)):''}
+      ${spec('INFILL',`${esc(pt?pt.label:r.pattern)} · ${esc(r.pct)}%`)}
+      ${spec('PRINTER',esc(p?p.label:r.printer))}
+      ${spec('SUBMITTED',fmtDate(r.createdAt))}
+      ${r.updatedAt>r.createdAt?spec('UPDATED',fmtDate(r.updatedAt)):''}
+    </dl></article>`;
+}
+function mineHtml(){
+  const flash=S.flash?`<div class="flash"><b class="mono">REQUEST #${shortId(S.flash)} SENT.</b> Your request has been sent. The status below updates as it moves along.</div>`:'';
+  return `<section class="wrap narrow">
+    <div class="pagehead"><div><p class="eyebrow">// MY REQUESTS</p><h1 class="h1s">Print status</h1></div>
+      <div class="actions" style="margin:0"><button class="btn ghost sm" data-act="refresh">REFRESH</button><button class="btn primary sm" data-act="newreq">+ NEW REQUEST</button></div></div>
+    ${flash}
+    ${S.requests.length?`<div class="reqs">${S.requests.map(reqCard).join('')}</div>`
+      :`<div class="empty">You haven't sent any print requests yet.<br><br><button class="btn primary" data-act="newreq">START A REQUEST</button></div>`}
+  </section>`;
+}
+
+/* ---- admin ---- */
+function adminHtml(){
+  return `<section class="wrap">
+    <div class="pagehead"><div><p class="eyebrow">// ADMIN</p><h1 class="h1s">Dashboard</h1></div>
+      <div class="tabs">
+        <button class="tab ${S.adminTab==='requests'?'on':''}" data-act="tab" data-tab="requests">REQUESTS<i>${S.requests.length}</i></button>
+        <button class="tab ${S.adminTab==='filaments'?'on':''}" data-act="tab" data-tab="filaments">FILAMENTS<i>${S.filaments.length}</i></button>
+      </div></div>
+    ${S.adminTab==='requests'?adminRequests():adminFilaments()}</section>`;
+}
+function filteredRequests(){
+  const q=S.filter.q.trim().toLowerCase();
+  return S.requests.filter(r=>(S.filter.status==='all'||r.status===S.filter.status)&&(!q||(r.name+' '+r.email+' '+r.fileName+' '+r.id).toLowerCase().includes(q)));
+}
+function rowsHtml(){
+  const list=filteredRequests();
+  if(!list.length) return `<div class="empty">No requests${S.requests.length?' match your filters':' yet'}.</div>`;
+  return list.map(r=>`<button type="button" class="row ${r.id===S.selectedId?'sel':''}" data-act="sel" data-id="${esc(r.id)}">
+    <span><b>${esc(r.name)}</b><small>${esc(r.email)}</small></span>
+    <span class="st st-${r.status}">${esc(statusOf(r.status).label)}</span>
+    <span class="r2">${spool(r.filament&&r.filament.hex,18)}<span>${esc(r.filament?r.filament.name:'')} · ${esc((prnById(r.printer)||{}).label||r.printer)} · ${esc(r.pct)}%</span><time class="dim mono" style="margin-left:auto">${fmtDate(r.createdAt)}</time></span>
+  </button>`).join('');
+}
+function detailHtml(){
+  const r=S.requests.find(x=>x.id===S.selectedId);
+  if(!r) return '<div class="empty">Select a request to see its details.</div>';
+  const f=r.filament||{}, pt=patById(r.pattern), p=prnById(r.printer);
+  return `<div class="detail">
+    <div class="d-head"><div><h3>${esc(r.name)}</h3><p class="dim">${esc(r.email)} · <span class="mono">#${shortId(r.id)}</span> · ${fmtDate(r.createdAt)}</p></div>
+      <span class="st st-${r.status}">${esc(statusOf(r.status).label)}</span></div>
+    <div class="quick"><button class="btn primary" data-act="complete">✓ MARK AS COMPLETE</button><button class="btn danger" data-act="fail">✕ MARK AS FAILED</button></div>
+    ${r.studentInfo?`<div class="note"><span>REPLY FROM STUDENT · ${fmtDate(r.studentInfoAt||r.updatedAt)}</span>${esc(r.studentInfo)}</div>`:''}
+    <div class="viewer" id="viewer"><div class="vmsg"><div>LOADING MODEL…</div></div></div>
+    <div class="filebar"><span class="mono">${esc(r.fileName)} · ${fmtBytes(r.fileSize)}${r.dims?'<br><span class="dim">'+esc(dimsText(r.dims))+'</span>':''}</span><button class="btn sm" data-act="dl">DOWNLOAD MODEL</button></div>
+    <dl class="specs">
+      ${spec('FILAMENT',`${spool(f.hex,22)}<span>${esc(f.type||'')} · ${esc(f.name||'')}</span>`)}
+      ${r.material?spec('MATERIAL',esc(r.material)):''}
+      ${spec('INFILL PATTERN',esc(pt?pt.label:r.pattern))}
+      ${spec('INFILL DENSITY',esc(r.pct)+'%')}
+      ${spec('PRINTER',esc(p?p.label:r.printer))}
+      ${r.notes?spec('NOTES',`<span style="white-space:pre-wrap">${esc(r.notes)}</span>`):''}
+    </dl>
+    <div class="statusbox">
+      <label class="lbl" for="stSel">DELIVERY STATUS</label>
+      <select class="inp" id="stSel">${STATUSES.map(s=>`<option value="${s.id}" ${s.id===r.status?'selected':''}>${esc(s.label)} — “${esc(s.msg)}”</option>`).join('')}</select>
+      <label class="lbl" for="stNote">OPTIONAL NOTE (SHOWN TO THE STUDENT)</label>
+      <textarea class="inp" id="stNote" maxlength="400" placeholder="e.g. Pick up from room 204 after 3pm.">${esc(r.statusNote||'')}</textarea>
+      <div class="actions"><button class="btn primary" data-act="savest">SAVE STATUS</button><button class="btn danger" data-act="del">DELETE REQUEST</button></div>
+    </div></div>`;
+}
+function adminRequests(){
+  const list=filteredRequests();
+  if(!list.some(r=>r.id===S.selectedId)) S.selectedId=list[0]?list[0].id:null;
+  const cnt=ids=>S.requests.filter(r=>ids.includes(r.status)).length;
+  const stat=(n,l)=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`;
+  return `<div class="stats">${stat(S.requests.length,'TOTAL')}${stat(cnt(['sent']),'NEW')}${stat(cnt(['review','queued','printing']),'IN PROGRESS')}${stat(cnt(['ontheway','ready']),'SHIPPING')}${stat(cnt(['finished','delivered']),'DONE')}${stat(cnt(['failed','issue']),'FAILED')}</div>
+    <div class="toolbar">
+      <select class="inp" id="fstatus" aria-label="Filter by status" style="max-width:220px"><option value="all">All statuses</option>${STATUSES.map(s=>`<option value="${s.id}" ${S.filter.status===s.id?'selected':''}>${esc(s.label)}</option>`).join('')}</select>
+      <input class="inp" id="fq" placeholder="Search name, email, file…" value="${esc(S.filter.q)}">
+      <button class="btn ghost" data-act="refresh">REFRESH</button>
+    </div>
+    <div class="split"><div class="rlist" id="rows">${rowsHtml()}</div><div id="detail">${detailHtml()}</div></div>`;
+}
+function adminFilaments(){
+  const f=S.filForm, editing=!!S.editFil;
+  const groups=groupByType(S.filaments);
+  const list=groups.length
+    ? groups.map(([type,items])=>`<div class="fgroup">${esc(type.toUpperCase())}</div>`+items.map(x=>{
+        const off=x.available===false;
+        return `<div class="frow ${off?'off':''}">${spool(x.hex,30)}
+          <div class="fmain"><b>${esc(x.name)}</b><small>${esc(x.type)} · ${safeHex(x.hex).toUpperCase()}${matOf(x.type)?'':' · <span style="color:#ffb74d">NO MATCHING MATERIAL — HIDDEN FROM STUDENTS</span>'}</small></div>
+          <button class="btn sm ${off?'ghost':''}" data-act="fil-toggle" data-id="${esc(x.id)}" title="Click to toggle">${off?'OUT OF STOCK':'IN STOCK'}</button>
+          <button class="btn sm ghost" data-act="fil-edit" data-id="${esc(x.id)}">EDIT</button>
+          <button class="btn sm danger" data-act="fil-del" data-id="${esc(x.id)}">DELETE</button></div>`;
+      }).join('')).join('')
+    : `<div class="empty">No filaments yet.<br><br><button class="btn primary" data-act="fil-seed">ADD A STARTER SET</button></div>`;
+  return `<div class="split">
+    <form id="filForm" class="panel" autocomplete="off">
+      <h3 class="ph">${editing?'EDIT FILAMENT':'ADD FILAMENT'}</h3>
+      <label class="lbl" for="fType">TYPE</label>
+      <input class="inp" id="fType" list="typeList" value="${esc(f.type)}" placeholder="PLA, PETG, TPU…" maxlength="24" required>
+      <datalist id="typeList">${TYPE_SUGGESTIONS.map(t=>`<option value="${t}">`).join('')}</datalist>
+      <label class="lbl" for="fName">COLOR NAME</label>
+      <input class="inp" id="fName" value="${esc(f.name)}" placeholder="Black, Galaxy Blue…" maxlength="32" required>
+      <label class="lbl" for="fHex">COLOR</label>
+      <div class="colorrow"><input type="color" id="fColor" value="${safeHex(f.hex)}" aria-label="Pick color">
+        <input class="inp" id="fHex" value="${esc(f.hex)}" maxlength="7" spellcheck="false" placeholder="#22e56f">
+        <span class="prev" id="filPrev">${spool(f.hex,44)}</span></div>
+      <div class="actions"><button class="btn primary" type="submit">${editing?'UPDATE':'ADD FILAMENT'}</button>${editing?'<button class="btn ghost" type="button" data-act="fil-cancel">CANCEL</button>':''}</div>
+    </form>
+    <div class="flist">${list}</div></div>`;
+}
+
+/* =====================================================================
+   Rendering + navigation
+   ===================================================================== */
+function render(){
+  $('#nav').innerHTML=navHtml();
+  const v=S.view;
+  $('#app').innerHTML = v==='login'?loginHtml() : v==='new'?wizardHtml() : v==='mine'?mineHtml() : adminHtml();
+  afterRender();
+}
+function renderKeep(){
+  const rows=$('#rows'), st=rows?rows.scrollTop:0, y=window.scrollY;
+  render();
+  const r2=$('#rows'); if(r2) r2.scrollTop=st;
+  window.scrollTo(0,y);
+}
+function afterRender(){
+  if(S.view==='new'&&S.step===2&&S.draft&&S.draft.buffer){
+    mountViewer($('#viewer'),S.draft.buffer,ext(S.draft.fileName),dims=>{
+      S.draft.dims=dims; const e=$('#dimsLine'); if(e) e.textContent=dimsText(dims);
+    });
+  }
+  if(S.view==='admin'&&S.adminTab==='requests'){
+    const r=S.requests.find(x=>x.id===S.selectedId); if(r) loadAdminModel(r);
+  }
+  const sl=$('#pct'); if(sl) setSliderFill(sl);
+  const li=$('#loginInput'); if(li) li.focus();
+}
+async function loadAdminModel(r){
+  try{
+    let buf=S.cache.get(r.id);
+    if(!buf){ buf=await store.getModel(r); if(!buf) throw new Error('missing model'); if(S.cache.size>6) S.cache.clear(); S.cache.set(r.id,buf); }
+    if(S.selectedId!==r.id) return;
+    mountViewer($('#viewer'),buf,ext(r.fileName),null);
+  }catch(e){
+    console.error(e);
+    const el=$('#viewer'); if(el&&S.selectedId===r.id) el.innerHTML='<div class="vmsg"><div>COULD NOT LOAD MODEL</div></div>';
+  }
+}
+function showSelected(){
+  const rows=$('#rows'); if(!rows) return;
+  const st=rows.scrollTop;
+  rows.innerHTML=rowsHtml(); rows.scrollTop=st;
+  $('#detail').innerHTML=detailHtml();
+  const r=S.requests.find(x=>x.id===S.selectedId); if(r) loadAdminModel(r);
+}
+async function go(view){
+  S.view=view;
+  const app=$('#app'); app.classList.add('busy');
+  try{
+    if(view==='new'){ if(!S.draft){ S.draft=newDraft(); S.step=1; } S.filaments=await store.listFilaments(); }
+    else if(view==='mine'){ S.requests=await store.listRequests(S.user); }
+    else if(view==='admin'){ [S.filaments,S.requests]=await Promise.all([store.listFilaments(),store.listRequests()]); }
+  }catch(e){ console.error(e); toast('Could not load data. '+(e.message||''),'bad'); }
+  S.lastSync=Date.now();
+  app.classList.remove('busy');
+  render(); window.scrollTo(0,0);
+}
+async function refreshData(){
+  if(S.view==='mine') S.requests=await store.listRequests(S.user);
+  else if(S.view==='admin'){ [S.filaments,S.requests]=await Promise.all([store.listFilaments(),store.listRequests()]); }
+  else if(S.view==='new') S.filaments=await store.listFilaments();
+  S.lastSync=Date.now();
+}
+
+/* =====================================================================
+   Actions
+   ===================================================================== */
+async function doLogin(raw){
+  const v=raw.trim(), err=$('#loginErr'); err.textContent='';
+  if(!v){ err.textContent='Enter your school email to continue.'; return; }
+  if(!v.includes('@')){
+    if(window.crypto&&crypto.subtle&&await sha256Hex(v)===CONFIG.adminHash){
+      S.admin=true; S.user=null; sessionStorage.setItem('tsa.admin','1'); LS.remove('tsa.session');
+      return go('admin');
+    }
+    err.textContent='Enter a valid email address.'; return;
+  }
+  const email=v.toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent='Enter a valid email address.'; return; }
+  if(CONFIG.schoolDomains.length&&!CONFIG.schoolDomains.some(d=>email.endsWith('@'+d.toLowerCase()))){
+    err.textContent='Please use your school email ('+CONFIG.schoolDomains.map(d=>'@'+d).join(', ')+').'; return;
+  }
+  $('#app').classList.add('busy');
+  try{ await store.ensureUser(email); }catch(e){ console.warn(e); }
+  S.user=email; LS.set('tsa.session',{email});
+  let reqs=[]; try{ reqs=await store.listRequests(email); }catch(e){ console.warn(e); }
+  $('#app').classList.remove('busy');
+  S.draft=null; S.step=1;
+  go(reqs.length?'mine':'new');
+}
+function signOut(){
+  if(S.admin){ S.admin=false; sessionStorage.removeItem('tsa.admin'); }
+  S.user=null; LS.remove('tsa.session'); S.draft=null; S.step=1; S.requests=[]; S.selectedId=null; S.flash=null; S.cache.clear();
+  go('login');
+}
+async function takeFile(f){
+  if(!f) return;
+  const x=ext(f.name);
+  if(!EXTS.includes(x)) return toast(`.${x||'?'} files aren't supported. Use ${EXTS.map(e=>'.'+e).join(', ')}.`,'bad');
+  if(f.size===0) return toast('That file is empty.','bad');
+  if(f.size>CONFIG.maxFileMB*1048576) return toast(`File is too large (max ${CONFIG.maxFileMB} MB).`,'bad');
+  const d=S.draft;
+  d.buffer=await f.arrayBuffer(); d.fileName=f.name; d.fileSize=f.size; d.dims=null;
+  render();
+}
+async function submit(){
+  const d=S.draft, f=filById(d&&d.filamentId);
+  if(!d||S.sending) return;
+  for(let i=0;i<STEPS.length-1;i++) if(!STEPS[i].valid(d)){ S.step=i+1; render(); toast('Please finish this step first.','bad'); return; }
+  const now=Date.now();
+  const req={
+    id:uid(), email:S.user, material:d.material, name:d.name.trim(), fileName:d.fileName, fileSize:d.fileSize, dims:d.dims||null,
+    filament:{id:f.id,type:f.type,name:f.name,hex:f.hex}, pattern:d.pattern, pct:d.pct, printer:d.printer,
+    notes:d.notes.trim(), status:'sent', statusNote:'', createdAt:now, updatedAt:now
+  };
+  const btn=$('#submitBtn'); S.sending=true; if(btn){ btn.disabled=true; btn.textContent='UPLOADING…'; }
+  try{
+    await store.createRequest(req,d.buffer,(i,n)=>{ const b=$('#submitBtn'); if(b) b.textContent=`UPLOADING ${i}/${n}`; });
+    S.draft=null; S.step=1; S.flash=req.id; S.cache.set(req.id,d.buffer); S.sending=false;
+    await go('mine');
+  }catch(e){
+    console.error(e); S.sending=false;
+    toast('Upload failed: '+(e.message||'please try again'),'bad');
+    const b=$('#submitBtn'); if(b){ b.disabled=false; b.textContent='SUBMIT REQUEST'; }
+  }
+}
+async function saveFil(){
+  const f=S.filForm, type=f.type.trim(), name=f.name.trim(), hex=normHex(f.hex);
+  if(!type||!name) return toast('Type and color name are required.','bad');
+  if(!hex) return toast('Color must be a hex code like #22e56f.','bad');
+  const ex=S.editFil?S.filaments.find(x=>x.id===S.editFil):null;
+  await store.saveFilament({id:ex?ex.id:uid(),type,name,hex,available:ex?ex.available!==false:true});
+  S.filaments=await store.listFilaments();
+  S.filForm={type:ex?'':type,name:'',hex:'#22e56f'}; S.editFil=null;
+  renderKeep(); toast(ex?'Filament updated.':'Filament added.');
+  if(!matOf(type)) toast(`"${type}" doesn't match PLA, PETG, ABS, TPU or PAHT-CF, so students won't see it.`,'bad');
+}
+function openDd(dd){
+  dd.classList.add('open'); const t=dd.querySelector('.dd-trigger'); if(t) t.setAttribute('aria-expanded','true');
+  const o=dd.querySelector('.dd-opt.sel')||dd.querySelector('.dd-opt:not(:disabled)'); if(o) o.focus();
+}
+function closeDd(){
+  document.querySelectorAll('.dd.open').forEach(dd=>{ dd.classList.remove('open'); const t=dd.querySelector('.dd-trigger'); if(t) t.setAttribute('aria-expanded','false'); });
+}
+
+document.addEventListener('click', async e=>{
+  if(!e.target.closest('.dd')) closeDd();
+  const t=e.target.closest('[data-act]'); if(!t) return;
+  const act=t.dataset.act, d=S.draft;
+  try{
+    switch(act){
+      case 'nav': S.flash=null; return void go(t.dataset.view);
+      case 'signout': return signOut();
+      case 'newreq': S.draft=newDraft(); S.step=1; S.flash=null; return void go('new');
+      case 'refresh': await refreshData(); renderKeep(); toast('Up to date.'); return;
+      case 'next': if(STEPS[S.step-1].valid(d)){ S.step++; d.max=Math.max(d.max,S.step); render(); } return;
+      case 'back': if(S.step>1){ S.step--; render(); } return;
+      case 'goto': { const n=+t.dataset.step; if(canReach(n)){ S.step=n; render(); } return; }
+      case 'pick': { const i=$('#fileInput'); if(i) i.click(); return; }
+      case 'dd': { const dd=t.closest('.dd'); if(dd.classList.contains('open')) closeDd(); else openDd(dd); return; }
+      case 'pickfil': d.filamentId=t.dataset.id; render(); return;
+      case 'pat': d.pattern=t.dataset.id; render(); return;
+      case 'mat': {
+        d.material=t.dataset.id;
+        const f=filById(d.filamentId); if(f&&(matOf(f.type)||{}).id!==d.material) d.filamentId=null;
+        const ok=allowedPrinters(d.material); if(!ok.includes(d.printer)) d.printer=ok[0];
+        render(); return;
+      }
+      case 'chip': d.pct=+t.dataset.v; render(); return;
+      case 'prn': d.printer=t.dataset.id; render(); return;
+      case 'submit': return await submit();
+
+      case 'tab': S.adminTab=t.dataset.tab; render(); return;
+      case 'sel': S.selectedId=t.dataset.id; showSelected(); return;
+      case 'savest': {
+        const r=S.requests.find(x=>x.id===S.selectedId); if(!r) return;
+        const patch={status:$('#stSel').value,statusNote:$('#stNote').value.trim(),updatedAt:Date.now()};
+        await store.updateRequest(r.id,patch); Object.assign(r,patch);
+        renderKeep(); toast('Status saved.'); return;
+      }
+      case 'del': {
+        const r=S.requests.find(x=>x.id===S.selectedId); if(!r) return;
+        if(!confirm(`Delete the request from ${r.name} (#${shortId(r.id)}) and its model file? This cannot be undone.`)) return;
+        await store.deleteRequest(r.id); S.requests=S.requests.filter(x=>x.id!==r.id); S.cache.delete(r.id); S.selectedId=null;
+        renderKeep(); toast('Request deleted.'); return;
+      }
+      case 'complete': {
+        const r=S.requests.find(x=>x.id===S.selectedId); if(!r) return;
+        const typed=($('#stNote')||{}).value||'';
+        const patch={status:'finished',statusNote:r.status==='failed'?'':typed.trim(),updatedAt:Date.now()};
+        await store.updateRequest(r.id,patch); Object.assign(r,patch);
+        renderKeep(); toast('Marked as finished printing.'); return;
+      }
+      case 'fail': {
+        const r=S.requests.find(x=>x.id===S.selectedId); if(!r) return;
+        const typed=(($('#stNote')||{}).value||'').trim();
+        const def=typed||'Your print failed. Can you tell us more about the model? For example the size you need, whether it needs supports, or send a fixed version.';
+        const note=prompt('This note is shown to the student with the "Print failed" status. Edit it if you like:',def);
+        if(note===null) return;
+        const patch={status:'failed',statusNote:note.trim()||def,updatedAt:Date.now()};
+        await store.updateRequest(r.id,patch); Object.assign(r,patch);
+        renderKeep(); toast('Marked as failed. The student will see your note.'); return;
+      }
+      case 'reply': {
+        const r=S.requests.find(x=>x.id===t.dataset.id); if(!r) return;
+        const box=document.getElementById('reply-'+r.id), txt=box?box.value.trim():'';
+        if(!txt){ toast('Write your reply first.','bad'); return; }
+        const now=Date.now(), patch={studentInfo:txt,studentInfoAt:now,status:'review',updatedAt:now};
+        await store.updateRequest(r.id,patch); Object.assign(r,patch);
+        renderKeep(); toast('Reply sent. Your request is back under review.'); return;
+      }
+      case 'dl': {
+        const r=S.requests.find(x=>x.id===S.selectedId); if(!r) return;
+        const buf=S.cache.get(r.id)||await store.getModel(r);
+        if(!buf) return toast('Model file not found.','bad');
+        S.cache.set(r.id,buf);
+        const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf])); a.download=r.fileName;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); return;
+      }
+      case 'fil-toggle': {
+        const f=S.filaments.find(x=>x.id===t.dataset.id); if(!f) return;
+        f.available=f.available===false; await store.saveFilament(f); renderKeep(); return;
+      }
+      case 'fil-edit': {
+        const f=S.filaments.find(x=>x.id===t.dataset.id); if(!f) return;
+        S.editFil=f.id; S.filForm={type:f.type,name:f.name,hex:f.hex}; renderKeep(); return;
+      }
+      case 'fil-cancel': S.editFil=null; S.filForm={type:'',name:'',hex:'#22e56f'}; renderKeep(); return;
+      case 'fil-del': {
+        const f=S.filaments.find(x=>x.id===t.dataset.id); if(!f) return;
+        if(!confirm(`Delete ${f.type} · ${f.name}? Existing requests keep their filament info.`)) return;
+        await store.deleteFilament(f.id); S.filaments=S.filaments.filter(x=>x.id!==f.id);
+        if(S.editFil===f.id){ S.editFil=null; S.filForm={type:'',name:'',hex:'#22e56f'}; }
+        renderKeep(); return;
+      }
+      case 'fil-seed':
+        for(const f of starterFilaments()) await store.saveFilament(f);
+        S.filaments=await store.listFilaments(); renderKeep(); return;
+    }
+  }catch(err){ console.error(err); toast(err.message||'Something went wrong.','bad'); }
+});
+
+document.addEventListener('input', e=>{
+  const t=e.target, id=t.id;
+  if(id==='f-name'){ S.draft.name=t.value; const b=$('#btn-next'); if(b) b.disabled=!STEPS[0].valid(S.draft); }
+  else if(id==='f-notes') S.draft.notes=t.value;
+  else if(id==='pct'){
+    const v=+t.value; S.draft.pct=v; setSliderFill(t);
+    $('#pctVal').textContent=v+'%'; $('#pctHint').textContent=pctHint(v);
+    document.querySelectorAll('[data-act="chip"]').forEach(b=>b.classList.toggle('on',+b.dataset.v===v));
+  }
+  else if(id==='fq'){ S.filter.q=t.value; const rows=$('#rows'); if(rows) rows.innerHTML=rowsHtml(); }
+  else if(id==='fType') S.filForm.type=t.value;
+  else if(id==='fName') S.filForm.name=t.value;
+  else if(id==='fColor'){ S.filForm.hex=t.value; $('#fHex').value=t.value; $('#filPrev').innerHTML=spool(t.value,44); }
+  else if(id==='fHex'){
+    S.filForm.hex=t.value; const h=normHex(t.value); if(h) $('#fColor').value=h;
+    $('#filPrev').innerHTML=spool(t.value,44);
+  }
+});
+document.addEventListener('change', e=>{
+  const t=e.target;
+  if(t.id==='fstatus'){ S.filter.status=t.value; const rows=$('#rows'); if(rows) rows.innerHTML=rowsHtml(); }
+  else if(t.id==='fileInput') takeFile(t.files[0]);
+});
+document.addEventListener('submit', async e=>{
+  e.preventDefault();
+  try{
+    if(e.target.id==='loginForm') await doLogin($('#loginInput').value);
+    else if(e.target.id==='filForm') await saveFil();
+  }catch(err){ console.error(err); toast(err.message||'Something went wrong.','bad'); }
+});
+document.addEventListener('keydown', e=>{
+  const t=e.target;
+  if(t.id==='f-name'&&e.key==='Enter'){ e.preventDefault(); if(STEPS[0].valid(S.draft)){ S.step=2; S.draft.max=Math.max(S.draft.max,2); render(); } return; }
+  if(t.id==='drop'&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); const i=$('#fileInput'); if(i) i.click(); return; }
+  const dd=t.closest&&t.closest('.dd'); if(!dd) return;
+  const opts=[...dd.querySelectorAll('.dd-opt:not(:disabled)')], i=opts.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(!dd.classList.contains('open')) openDd(dd); else if(opts.length) opts[Math.min(i+1,opts.length-1)].focus(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); if(dd.classList.contains('open')&&opts.length) opts[Math.max(i-1,0)].focus(); }
+  else if(e.key==='Escape'){ closeDd(); const tr=dd.querySelector('.dd-trigger'); if(tr) tr.focus(); }
+});
+['dragover','drop'].forEach(ev=>window.addEventListener(ev,e=>{
+  e.preventDefault();
+  const z=e.target.closest&&e.target.closest('#drop');
+  if(ev==='dragover'&&z) z.classList.add('over');
+  if(ev==='drop'){ const dz=$('#drop'); if(dz) dz.classList.remove('over'); if(z&&e.dataTransfer.files.length) takeFile(e.dataTransfer.files[0]); }
+}));
+window.addEventListener('dragleave',e=>{ const dz=$('#drop'); if(dz&&!e.relatedTarget) dz.classList.remove('over'); });
+
+// Refresh automatically when the person comes back to the tab (cheap, avoids constant polling).
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.hidden||Date.now()-S.lastSync<15000) return;
+  if(!(S.view==='mine'||(S.view==='admin'&&S.adminTab==='requests'))) return;
+  try{
+    const before=S.requests.map(r=>r.id+':'+r.updatedAt).join('|');
+    await refreshData();
+    if(S.requests.map(r=>r.id+':'+r.updatedAt).join('|')!==before) renderKeep();
+  }catch(e){ console.warn(e); }
+});
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+(async function boot(){
+  try{ await store.init(); }
+  catch(e){
+    console.error(e); store=LocalStore; await store.init();
+    toast('Could not connect to Firebase — running in local mode.','bad');
+  }
+  if(S.admin) go('admin');
+  else if(S.user){
+    let n=0; try{ n=(await store.listRequests(S.user)).length; }catch{}
+    go(n?'mine':'new');
+  } else go('login');
+})();
+
+})();
+</script>
+</body>
+</html>
